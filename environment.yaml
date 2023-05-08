@@ -1,0 +1,16 @@
+name: torchenv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pytorch
+  - pandas
+  - matplotlib
+  - pyyaml
+  - scipy
+  - tensorboard
+  - numpy=1.23.5
+  - opencv
+  - torchvision
+prefix: /home/.../anaconda3/envs/torchenv
