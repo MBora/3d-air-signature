@@ -551,7 +551,7 @@ class SliTCNN2D_LSTM(nn.Module):
         self.flatten = nn.Flatten(start_dim=1,end_dim=2)
 
         self.fc1 = nn.ModuleList([
-            nn.Linear(in_features=238*256,out_features=128)
+            nn.Linear(in_features=476*256,out_features=128)
             for i in range(2)
         ])
 
@@ -569,12 +569,12 @@ class SliTCNN2D_LSTM(nn.Module):
             t = self.norm(t)
             t = self.conv2[i](t)
             t = self.lrelu(t)
-            t = self.maxpool(t)
             t = t.squeeze(-1) # remove the last dim
             t = t.permute(0, 2, 1) # Change shape to [batch, seq_len, channels]
             print(t.shape)
             input()
             t, (hn, cn) = self.lstm(t)
+            # t = self.maxpool(t)
             # print("shape after lstm", t.shape)
             # input()
             t = self.flatten(t)
