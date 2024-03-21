@@ -551,7 +551,7 @@ class SliTCNN2D_LSTM(nn.Module):
         self.flatten = nn.Flatten(start_dim=1,end_dim=2)
 
         self.fc1 = nn.ModuleList([
-            nn.Linear(in_features=476*256,out_features=128)
+            nn.Linear(in_features=476*1024,out_features=128)
             for i in range(2)
         ])
 
