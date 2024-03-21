@@ -572,7 +572,6 @@ class SliTCNN2D_LSTM(nn.Module):
             t = t.squeeze(-1) # remove the last dim
             t = t.permute(0, 2, 1) # Change shape to [batch, seq_len, channels]
             print(t.shape)
-            input()
             t, (hn, cn) = self.lstm(t)
             # t = self.maxpool(t)
             # print("shape after lstm", t.shape)
