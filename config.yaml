@@ -6,17 +6,17 @@ dataset:
   fit: 3 # 0. Raw dataset, 1. 2D Projections, 2. Interpolated to pen tip, 3. Interpolated to both tips (only for AirSigns)
   loader: 3 # 0. Features, 1. 2D Image Loader, 2. Padded, 3. Raw (for equalised rows)
 
-model: "SliTCNN2D" # Options:
+model: "SliTCNN2D_LSTM" # Options:
 # "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SLiTCNN2D"
 
 paths:
-  datasets: "../Datasets"
+  datasets: "../"
   output_dir: "../Outputs" # Directory to store checkpoints and logs (Makes if it doesn't exist)
 
 devices:
   dataloading: "cpu"
-  model: "cuda"
-  training: "cuda"
+  model: "cpu"
+  training: "cpu"
 
 training:
   no_of_epochs: 50

@@ -221,6 +221,9 @@ class ReadConfig:
         elif self.architecture_name == "SliTCNN2D":
             dic_["num_rows"] = self.num_rows
             dic_["num_columns"] = self.num_columns
+        elif self.architecture_name == "SliTCNN2D_LSTM":
+            dic_["num_rows"] = self.num_rows
+            dic_["num_columns"] = self.num_columns
         else:
             raise Exception("Invalid Model.")
         return self.Model(**dic_)

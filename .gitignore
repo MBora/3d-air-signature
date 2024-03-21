@@ -1,1 +1,3 @@
 junk.py
+__pycache__/
+.pyc
