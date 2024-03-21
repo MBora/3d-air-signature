@@ -543,7 +543,7 @@ class SliTCNN2D_LSTM(nn.Module):
             for i in range(2)
         ])
         
-        self.lstm = nn.LSTM(input_size=128, hidden_size=128, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
+        self.lstm = nn.LSTM(input_size=128, hidden_size=256, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
 
         self.norm = nn.LayerNorm([64,self.num_rows-29,1])
         self.maxpool = nn.MaxPool2d(kernel_size=(2,1))
