@@ -11,7 +11,7 @@ model: "SliTCNN1StreamLSTM" # Options:
 
 paths:
   datasets: "/scratch/amukherjee/Datasets"
-  output_dir: "../Outputs" # Directory to store checkpoints and logs (Makes if it doesn't exist)
+  output_dir: "/scratch/amukherjee/ASVJournal" # Directory to store checkpoints and logs (Makes if it doesn't exist)
 
 devices:
   dataloading: "cpu"
