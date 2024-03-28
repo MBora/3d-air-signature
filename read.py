@@ -43,6 +43,7 @@ class ReadConfig:
         self.architecture_name = self.config["model"]
 
         self.num_classes = self.config[self.dataset_name]["no_of_classes"]
+        self.lstm_hidden_size = self.config["slit_cnn"]["lstm_hidden_size"]
 
         self.batch_size = self.config["training"]["batch_size"]
         self.num_workers = self.config["training"]["num_workers"]
@@ -218,12 +219,22 @@ class ReadConfig:
         elif self.architecture_name == "CNN2D":
             dic_["num_rows"] = self.num_rows
             dic_["num_columns"] = self.num_columns
+        elif self.architecture_name == "SliTCNN1Stream":
+            dic_["num_rows"] = self.num_rows
+            dic_["num_columns"] = self.num_columns
         elif self.architecture_name == "SliTCNN2D":
             dic_["num_rows"] = self.num_rows
             dic_["num_columns"] = self.num_columns
         elif self.architecture_name == "SliTCNN2D_LSTM":
             dic_["num_rows"] = self.num_rows
             dic_["num_columns"] = self.num_columns
+            dic_["lstm_hidden_size"] = self.lstm_hidden_size
+        elif self.architecture_name == "SliTCNN1StreamLSTM":
+            dic_["num_rows"] = self.num_rows
+            dic_["num_columns"] = self.num_columns
+            dic_["lstm_hidden_size"] = self.lstm_hidden_size
+            if self.dataset_name == "SVC":
+                dic_["svc"] = True
         else:
             raise Exception("Invalid Model.")
         return self.Model(**dic_)

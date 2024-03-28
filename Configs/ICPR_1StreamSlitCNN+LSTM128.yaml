@@ -1,7 +1,7 @@
 # all epochs are 1-indexed
 
 dataset:
-  name: "SVC" # "AirSigns", "SVC", "ICPR"
+  name: "ICPR" # "AirSigns", "SVC", "ICPR"
   augmentation: False
   fit: 2 # 0. Raw dataset, 1. 2D Projections, 2. Interpolated to pen tip, 3. Interpolated to both tips (only for AirSigns)
   loader: 3 # 0. Features, 1. 2D Image Loader, 2. Padded, 3. Raw (for equalised rows)
@@ -15,11 +15,11 @@ paths:
 
 devices:
   dataloading: "cpu"
-  model: "cpu"
-  training: "cpu"
+  model: "cuda"
+  training: "cuda"
 
 training:
-  no_of_epochs: 50
+  no_of_epochs: 200
   batch_size: 32
   num_workers: 16
   learning_rate: 0.00001
