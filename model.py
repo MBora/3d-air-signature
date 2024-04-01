@@ -671,7 +671,7 @@ class SliTCNN2D_LSTM(nn.Module):
             for i in range(2)
         ])
         self.lstm = nn.ModuleList([ 
-            nn.LSTM(input_size=128, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
+            nn.LSTM(input_size=128, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.25, bidirectional=True)
             for i in range(2)
         ])
         self.norm = nn.LayerNorm([64,self.num_rows-29,1])
@@ -713,5 +713,7 @@ class SliTCNN2D_LSTM(nn.Module):
             t = self.dropout(t)
             to_cat.append(t)
         out = torch.cat(to_cat,dim=1)
+        print(out.shape)
+        input()
         out = self.fc2(out)
         return out
