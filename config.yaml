@@ -59,7 +59,7 @@ simple_gru:
   bidirectional: True
 
 slit_cnn:
-  lstm_hidden_size: 128
+  lstm_hidden_size: 256
 
 ## Datasets ## - mostly constants
 

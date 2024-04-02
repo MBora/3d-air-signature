@@ -671,7 +671,7 @@ class SliTCNN2D_LSTM(nn.Module):
             for i in range(2)
         ])
         self.lstm = nn.ModuleList([ 
-            nn.LSTM(input_size=128, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
+            nn.LSTM(input_size=128, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.25, bidirectional=True)
             for i in range(2)
         ])
         self.norm = nn.LayerNorm([64,self.num_rows-29,1])
@@ -682,14 +682,22 @@ class SliTCNN2D_LSTM(nn.Module):
         # print(int((self.num_rows-36)/2))
         # input()
         self.fc1 = nn.ModuleList([
-            nn.Linear(in_features=int((self.num_rows-36))*self.lstm_hidden_size*2,out_features=128)
+            nn.Linear(in_features=int((self.num_rows-36))*self.lstm_hidden_size*2,out_features=2048) # 2048 to 512 to 128 
+            for i in range(2)
+        ])
+        self.fc2 = nn.ModuleList([
+            nn.Linear(in_features=2048,out_features=512)
+            for i in range(2)
+        ])
+        self.fc3 = nn.ModuleList([
+            nn.Linear(in_features=512,out_features=256)
             for i in range(2)
         ])
         
-        self.lstm_out = nn.LSTM(input_size=256, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
+        self.lstm_out = nn.LSTM(input_size=2, hidden_size=256, num_layers=1, batch_first=True, dropout=0.25, bidirectional=True)
 
         self.dropout = nn.Dropout(0.25)
-        self.fc2 = nn.Linear(in_features=self.lstm_hidden_size*2, out_features=self.num_classes)
+        self.fc4 = nn.Linear(in_features=256*256*2, out_features=self.num_classes)
 
     def forward(self,x):
         to_cat = []
@@ -704,19 +712,25 @@ class SliTCNN2D_LSTM(nn.Module):
             t = self.lrelu(t)
             t = t.squeeze(-1) # remove the last dim
             t = t.permute(0, 2, 1) # Change shape to [batch, seq_len, channels]
+            # input()
             t, (hn, cn) = self.lstm[i](t)
             # t = self.maxpool(t)
-            # print("shape after lstm", t.shape)
-            # input()
             t = self.flatten(t)
-            # print(t.shape)
+            # input()
             t = self.fc1[i](t)
-            t = self.lrelu(t)
             t = self.dropout(t)
+            t = self.lrelu(t)
+            t = self.fc2[i](t)
+            t = self.dropout(t)
+            t = self.lrelu(t)
+            t = self.fc3[i](t)
+            t = self.lrelu(t)
             to_cat.append(t)
-        out = torch.cat(to_cat,dim=1)
-        out, (hn, cn) = self.lstm_out(out)
-        # print(out.shape)
-        # input()
-        out = self.fc2(out)
+        tensor1_unsqueezed = to_cat[0].unsqueeze(-1)
+        tensor2_unsqueezed = to_cat[1].unsqueeze(-1)
+        stacked_tensor = torch.cat([tensor1_unsqueezed, tensor2_unsqueezed], dim=-1)  
+        out, (hn, cn) = self.lstm_out(stacked_tensor)
+        # flatten
+        out = self.flatten(out)
+        out = self.fc4(out)
         return out
