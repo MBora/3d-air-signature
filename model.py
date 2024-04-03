@@ -682,22 +682,22 @@ class SliTCNN2D_LSTM(nn.Module):
         # print(int((self.num_rows-36)/2))
         # input()
         self.fc1 = nn.ModuleList([
-            nn.Linear(in_features=int((self.num_rows-36))*self.lstm_hidden_size*2,out_features=2048) # 2048 to 512 to 128 
+            nn.Linear(in_features=int((self.num_rows-36))*self.lstm_hidden_size*2,out_features=4096) 
             for i in range(2)
         ])
         self.fc2 = nn.ModuleList([
-            nn.Linear(in_features=2048,out_features=512)
-            for i in range(2)
+            nn.Linear(in_features=4096*2,out_features=512)
+            for i in range(1)
         ])
         self.fc3 = nn.ModuleList([
             nn.Linear(in_features=512,out_features=256)
-            for i in range(2)
+            for i in range(1)
         ])
         
-        self.lstm_out = nn.LSTM(input_size=2, hidden_size=256, num_layers=1, batch_first=True, dropout=0.25, bidirectional=True)
+        # self.lstm_out = nn.LSTM(input_size=2, hidden_size=256, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
 
         self.dropout = nn.Dropout(0.25)
-        self.fc4 = nn.Linear(in_features=256*256*2, out_features=self.num_classes)
+        self.fc4 = nn.Linear(in_features=256, out_features=self.num_classes)
 
     def forward(self,x):
         to_cat = []
@@ -720,17 +720,20 @@ class SliTCNN2D_LSTM(nn.Module):
             t = self.fc1[i](t)
             t = self.dropout(t)
             t = self.lrelu(t)
-            t = self.fc2[i](t)
-            t = self.dropout(t)
-            t = self.lrelu(t)
-            t = self.fc3[i](t)
+            # t = self.fc2[i](t)
+            # t = self.dropout(t)
+            # t = self.lrelu(t)
+            # t = self.fc3[i](t)
             t = self.lrelu(t)
             to_cat.append(t)
-        tensor1_unsqueezed = to_cat[0].unsqueeze(-1)
-        tensor2_unsqueezed = to_cat[1].unsqueeze(-1)
-        stacked_tensor = torch.cat([tensor1_unsqueezed, tensor2_unsqueezed], dim=-1)  
-        out, (hn, cn) = self.lstm_out(stacked_tensor)
-        # flatten
-        out = self.flatten(out)
+        out = torch.cat(to_cat,dim=1)
+        # tensor1_unsqueezed = to_cat[0].unsqueeze(-1)
+        # tensor2_unsqueezed = to_cat[1].unsqueeze(-1)
+        # stacked_tensor = torch.cat([tensor1_unsqueezed, tensor2_unsqueezed], dim=-1)  
+        # out, (hn, cn) = self.lstm_out(stacked_tensor)
+        out = self.fc2[0](out)
+        out = self.lrelu(out)
+        out = self.fc3[0](out)
+        out = self.lrelu(out)
         out = self.fc4(out)
         return out
