@@ -6,8 +6,8 @@ dataset:
   fit: 3 # 0. Raw dataset, 1. 2D Projections, 2. Interpolated to pen tip, 3. Interpolated to both tips (only for AirSigns)
   loader: 3 # 0. Features, 1. 2D Image Loader, 2. Padded, 3. Raw (for equalised rows)
 
-model: "SliTCNN2D_LSTM" # Options:
-# "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SLiTCNN2D", "SliTCNN1StreamLSTM", "SliTCNN2D_LSTM"
+model: "SliTCNN2D_LSTM_ParallelTipTail" # Options:
+# "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SLiTCNN2D", "SliTCNN1StreamLSTM", "SliTCNN2D_LSTM_SequentialTipTail", "SliTCNN2D_LSTM_ParallelTipTail"
 
 paths:
   datasets: "../"

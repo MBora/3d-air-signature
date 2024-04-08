@@ -225,7 +225,11 @@ class ReadConfig:
         elif self.architecture_name == "SliTCNN2D":
             dic_["num_rows"] = self.num_rows
             dic_["num_columns"] = self.num_columns
-        elif self.architecture_name == "SliTCNN2D_LSTM":
+        elif self.architecture_name == "SliTCNN2D_LSTM_SequentialTipTail":
+            dic_["num_rows"] = self.num_rows
+            dic_["num_columns"] = self.num_columns
+            dic_["lstm_hidden_size"] = self.lstm_hidden_size
+        elif self.architecture_name == "SliTCNN2D_LSTM_ParallelTipTail":
             dic_["num_rows"] = self.num_rows
             dic_["num_columns"] = self.num_columns
             dic_["lstm_hidden_size"] = self.lstm_hidden_size

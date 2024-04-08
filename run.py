@@ -23,7 +23,7 @@ if __name__ == "__main__":
     aug_name = {True: "with",False: "without"}
     fit_name = {0: "",1: "",2:"PenTip_",3:"BothTips_"}
     loader_name = {0:"FeaturesOf",1:"Projections2DOf",2:"Padded",3:"RawDataOf"}
-    name = f'{loader_name[config["dataset"]["loader"]]}_{fit_name[config["dataset"]["fit"]]}{config["dataset"]["name"]}_{aug_name[config["dataset"]["augmentation"]]}_Aug_{config["model"]}'
+    name = f'{loader_name[config["dataset"]["loader"]]}_{fit_name[config["dataset"]["fit"]]}{config["dataset"]["name"]}_{aug_name[config["dataset"]["augmentation"]]}_Aug_{config["model"]}_LSTM_HiddenSize_{config["slit_cnn"]["lstm_hidden_size"]}'
     out_dir = os.path.join(config["paths"]["output_dir"], name)
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)

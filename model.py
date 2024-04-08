@@ -648,8 +648,7 @@ class SliTCNN1StreamLSTM(nn.Module):
         out = self.fc2(out)
         return out
 
-class SliTCNN2D_LSTM(nn.Module):
-
+class SliTCNN2D_LSTM_ParallelTipTail(nn.Module):
     def __init__(self, num_rows, num_columns, num_classes, lstm_hidden_size):
         super().__init__()
 
@@ -671,7 +670,7 @@ class SliTCNN2D_LSTM(nn.Module):
             for i in range(2)
         ])
         self.lstm = nn.ModuleList([ 
-            nn.LSTM(input_size=128, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.25, bidirectional=True)
+            nn.LSTM(input_size=128, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
             for i in range(2)
         ])
         self.norm = nn.LayerNorm([64,self.num_rows-29,1])
@@ -682,22 +681,12 @@ class SliTCNN2D_LSTM(nn.Module):
         # print(int((self.num_rows-36)/2))
         # input()
         self.fc1 = nn.ModuleList([
-            nn.Linear(in_features=int((self.num_rows-36))*self.lstm_hidden_size*2,out_features=4096) 
+            nn.Linear(in_features=int((self.num_rows-36))*self.lstm_hidden_size*2,out_features=128)
             for i in range(2)
         ])
-        self.fc2 = nn.ModuleList([
-            nn.Linear(in_features=4096*2,out_features=512)
-            for i in range(1)
-        ])
-        self.fc3 = nn.ModuleList([
-            nn.Linear(in_features=512,out_features=256)
-            for i in range(1)
-        ])
-        
-        # self.lstm_out = nn.LSTM(input_size=2, hidden_size=256, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
 
         self.dropout = nn.Dropout(0.25)
-        self.fc4 = nn.Linear(in_features=256, out_features=self.num_classes)
+        self.fc2 = nn.Linear(in_features=256, out_features=self.num_classes)
 
     def forward(self,x):
         to_cat = []
@@ -712,28 +701,81 @@ class SliTCNN2D_LSTM(nn.Module):
             t = self.lrelu(t)
             t = t.squeeze(-1) # remove the last dim
             t = t.permute(0, 2, 1) # Change shape to [batch, seq_len, channels]
-            # input()
             t, (hn, cn) = self.lstm[i](t)
             # t = self.maxpool(t)
-            t = self.flatten(t)
+            # print("shape after lstm", t.shape)
             # input()
+            t = self.flatten(t)
+            # print(t.shape)
             t = self.fc1[i](t)
+            t = self.lrelu(t)
             t = self.dropout(t)
-            t = self.lrelu(t)
-            # t = self.fc2[i](t)
-            # t = self.dropout(t)
-            # t = self.lrelu(t)
-            # t = self.fc3[i](t)
-            t = self.lrelu(t)
             to_cat.append(t)
         out = torch.cat(to_cat,dim=1)
-        # tensor1_unsqueezed = to_cat[0].unsqueeze(-1)
-        # tensor2_unsqueezed = to_cat[1].unsqueeze(-1)
-        # stacked_tensor = torch.cat([tensor1_unsqueezed, tensor2_unsqueezed], dim=-1)  
-        # out, (hn, cn) = self.lstm_out(stacked_tensor)
-        out = self.fc2[0](out)
-        out = self.lrelu(out)
-        out = self.fc3[0](out)
-        out = self.lrelu(out)
-        out = self.fc4(out)
+        out = self.fc2(out)
+        return out
+
+class SliTCNN2D_LSTM_SequentialTipTail(nn.Module):
+
+    def __init__(self, num_rows, num_columns, num_classes, lstm_hidden_size):
+        super().__init__()
+
+        self.num_rows = num_rows
+        self.num_columns = num_columns
+        self.num_classes = num_classes
+        self.lstm_hidden_size = lstm_hidden_size
+
+        if not self.num_columns == 6:
+            raise Exception("Invalid dataloader!")
+
+        self.conv1 = nn.ModuleList([
+            nn.Conv2d(in_channels=1,out_channels=64,kernel_size=(30,3),stride=1)
+            for i in range(2)
+        ])
+
+        self.conv2 = nn.ModuleList([
+            nn.Conv2d(in_channels=64,out_channels=128,kernel_size=(8,1),stride=1)
+            for i in range(2)
+        ])
+        
+        self.lstm = nn.LSTM(input_size=128, hidden_size=self.lstm_hidden_size, num_layers=1, batch_first=True, dropout=0.5, bidirectional=True)
+
+        self.norm = nn.LayerNorm([64,self.num_rows-29,1])
+        self.maxpool = nn.MaxPool2d(kernel_size=(2,1))
+        self.lrelu = nn.LeakyReLU()
+        self.flatten = nn.Flatten(start_dim=1,end_dim=2)
+
+        self.fc1 = nn.ModuleList([
+            nn.Linear(in_features=476*2*lstm_hidden_size,out_features=128)
+            for i in range(2)
+        ])
+
+        self.dropout = nn.Dropout(0.25)
+        self.fc2 = nn.Linear(in_features=256, out_features=self.num_classes)
+
+    def forward(self,x):
+        to_cat = []
+
+        for i in range(2):
+            t = x[:,:,3*i:3*(i+1)]
+            t = torch.unsqueeze(t,dim=1)
+            t = self.conv1[i](t)
+            t = self.lrelu(t)
+            t = self.norm(t)
+            t = self.conv2[i](t)
+            t = self.lrelu(t)
+            # t = self.maxpool(t) # remove maxpool
+            t = t.squeeze(-1) # remove the last dim
+            t = t.permute(0, 2, 1) # Change shape to [batch, seq_len, channels]
+            t, (hn, cn) = self.lstm(t)
+            # print("shape after lstm", t.shape)
+            # input()
+            t = self.flatten(t)
+            # print(t.shape)
+            t = self.fc1[i](t)
+            t = self.lrelu(t)
+            t = self.dropout(t)
+            to_cat.append(t)
+        out = torch.cat(to_cat,dim=1)
+        out = self.fc2(out)
         return out
