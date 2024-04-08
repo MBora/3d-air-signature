@@ -1,0 +1,175 @@
+# all epochs are 1-indexed
+
+dataset:
+  name: "AirSigns" # "AirSigns", "SVC", "ICPR"
+  augmentation: True
+  fit: 3 # 0. Raw dataset, 1. 2D Projections, 2. Interpolated to pen tip, 3. Interpolated to both tips (only for AirSigns)
+  loader: 3 # 0. Features, 1. 2D Image Loader, 2. Padded, 3. Raw (for equalised rows)
+
+model: "SliTCNN2D_LSTM_SequentialTipTail" # Options:
+# "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SLiTCNN2D", "SliTCNN1StreamLSTM", "SliTCNN2D_LSTM"
+
+paths:
+  datasets: "/scratch/amukherjee/Datasets"
+  output_dir: "/scratch/amukherjee/ASVJournal" # Directory to store checkpoints and logs (Makes if it doesn't exist)
+
+devices:
+  dataloading: "cpu"
+  model: "cuda"
+  training: "cuda"
+
+training:
+  no_of_epochs: 10
+  batch_size: 32
+  num_workers: 16
+  learning_rate: 0.00001
+  loss_function: "CrossEntropyLoss"
+  optimizer: "Adam"
+  learning_rate_decay_by_val_loss: # If enabled, it multiplies the learning rate by "factor" if the rolling average of validation loss "every_n_epochs" is increasing
+    enable: False
+    every_n_epochs: 5
+    factor: 0.2
+  learning_rate_scheduler: # If enabled, it multiplies the learning rate by "factor" after "every_n_epochs"
+    enable: False
+    every_n_epochs: 10
+    factor: 0.5
+
+# Checkpoints to save and test on
+checkpoint_save: "BestValidationAccuracy" # "All", "BestValidationAccuracy"
+
+## Models ##
+
+stc:
+  dropout_rate: 0.5
+  hidden_size_1: 512
+  hidden_size_2: 128
+  hidden_size_3: 512
+  hidden_size_4: 128
+  layer1_bidirectional: True
+  layer2_bidirectional: True
+
+simple_lstm:
+  hidden_size_1: 512
+  hidden_size_2: 128
+  bidirectional: True
+
+simple_gru:
+  hidden_size_1: 512
+  hidden_size_2: 128
+  bidirectional: True
+
+slit_cnn:
+  lstm_hidden_size: 128
+
+## Datasets ## - mostly constants
+
+AirSigns:
+  path: "AirSigns" # Relative to path mentioned above
+  no_of_classes: 45
+  split:
+    train: 16
+    validation: 4
+    testing: "remaining" # Because total number varies from 23 to 33
+  fits:
+    raw_dataset:
+      path: "AirSignsShuffled"
+      forged_path: "SkilledForgeriesAirSigns"
+      aug_path: "AirSignsAug"
+      rows: 330 # Maximum number of rows
+      columns: 12
+    2d_projections:
+      path: "AirSigns2D"
+      forged_path: "SkilledForgeriesAirSigns2D"
+      size: 256
+    pen_tip:
+      path: "AirSignsShuffledBothBalls"
+      forged_path: "SkilledForgeriesAirSignsBothBalls"
+      aug_path: "AirSignsBothBallsAug"
+      rows: 512
+      columns: 3
+    both_balls:
+      path: "AirSignsShuffledBothBalls"
+      forged_path: "SkilledForgeriesAirSignsBothBalls"
+      aug_path: "AirSignsBothBallsAug"
+      rows: 512
+      columns: 6
+  loaders:
+    features:
+      no_of_windows: 8
+      window_size: 64
+      no_of_descriptors: 5
+    2d_image:
+      []
+    padded:
+      []
+    raw_loader:
+      []
+
+SVC:
+  path: "SVC" # Relative to path mentioned above
+  no_of_classes: 40
+  split:
+    train: 10
+    validation: 2
+    testing: 8 # Total Number is always 20
+  fits:
+    raw_dataset:
+      path: "SVCNorm"
+      aug_path: "SVCAug"
+      forged_path: "SkilledForgeriesSVCNorm"
+      rows: 725 # Maximum number of rows
+      columns: 2
+    2d_projections:
+      path: "SVC2D"
+      forged_path: "SkilledForgeriesSVC2D"
+      size: 256
+    pen_tip:
+      path: "SVCPenTip"
+      aug_path: "SVCPenTipAug"
+      forged_path: "SkilledForgeriesSVCPenTip"
+      rows: 1024
+      columns: 2
+  loaders:
+    features:
+      no_of_windows: 16
+      window_size: 64
+      no_of_descriptors: 5
+    2d_image:
+      []
+    padded:
+      []
+    raw_loader:
+      []
+
+ICPR:
+  path: "ICPR" # Relative to path mentioned above
+  no_of_classes: 50
+  split:
+    train: 8
+    validation: 2
+    testing: "remaining" # Total Number is always 14 except 13 once (user12)
+  fits:
+    raw_dataset:
+      path: "ICPRNorm"
+      aug_path: "ICPRAug"
+      rows: 1466 # Maximum number of rows
+      columns: 3
+    2d_projections:
+      path: "ICPR2D"
+      size: 256
+    pen_tip:
+      path: "ICPRPenTip"
+      aug_path: "ICPRPenTipAug"
+      rows: 2048
+      columns: 3
+  loaders:
+    features:
+      no_of_windows: 32
+      window_size: 64
+      no_of_descriptors: 5
+    2d_image:
+      []
+    padded:
+      []
+    raw_loader:
+      []
