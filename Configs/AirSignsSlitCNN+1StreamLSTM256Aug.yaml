@@ -10,7 +10,7 @@ model: "SliTCNN1StreamLSTM" # Options:
 # "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SLiTCNN2D", "SliTCNN1StreamLSTM", "SliTCNN2D_LSTM"
 
 paths:
-  datasets: "/mnt/MIG_store/Datasets"
+  datasets: "/mnt/MIG_Store/Datasets"
   output_dir: "../ASVRuns1" # Directory to store checkpoints and logs (Makes if it doesn't exist)
 
 devices:
