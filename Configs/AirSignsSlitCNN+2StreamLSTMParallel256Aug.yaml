@@ -10,8 +10,8 @@ model: "SliTCNN2D_LSTM_ParallelTipTail" # Options:
 # "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SLiTCNN2D", "SliTCNN1StreamLSTM", "SliTCNN2D_LSTM_ParallelTipTail"
 
 paths:
-  datasets: "/scratch/amukherjee/Datasets"
-  output_dir: "/scratch/amukherjee/ASVJournal" # Directory to store checkpoints and logs (Makes if it doesn't exist)
+  datasets: "/mnt/MIG_store/Datasets"
+  output_dir: "../ASVRuns1" # Directory to store checkpoints and logs (Makes if it doesn't exist)
 
 devices:
   dataloading: "cpu"
