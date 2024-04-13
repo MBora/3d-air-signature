@@ -239,6 +239,11 @@ class ReadConfig:
             dic_["lstm_hidden_size"] = self.lstm_hidden_size
             if self.dataset_name == "SVC":
                 dic_["svc"] = True
+        elif self.architecture_name == "SliTCNN1StreamEncoderDecoder":
+            dic_["num_rows"] = self.num_rows
+            dic_["num_columns"] = self.num_columns
+            if self.dataset_name == "SVC":
+                dic_["svc"] = True
         else:
             raise Exception("Invalid Model.")
         return self.Model(**dic_)

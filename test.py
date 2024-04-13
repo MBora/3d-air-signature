@@ -2,7 +2,7 @@ import os
 import torch
 from read import ReadConfig
 from write import Table, TestLog
-
+import torch.nn as nn
 
 def Test(config,name,checkpoints_dir,logs_dir):
 
@@ -41,28 +41,39 @@ def Test(config,name,checkpoints_dir,logs_dir):
 
         log = TestLog(logging_file)
 
-        model.eval()
 
+        model.eval()
         testing_loss = 0.0
+        testing_reconstruction_loss = 0.0
         testing_acc = 0.0
 
         with torch.inference_mode():
             table.test_header()
-            for i,batch_data in enumerate(testloader):
-                data,target,label = batch_data
-                output = model(data.to(model_device)).to(training_device)
+            for i, batch_data in enumerate(testloader):
+                data, target, label = batch_data
+                output, reconstructed = model(data.to(model_device))
+                output = output.to(training_device)
+                reconstructed = reconstructed.to(training_device)
                 target = target.to(training_device)
-                acc = torch.sum(torch.argmax(output,1)==torch.argmax(target,1))
+                data = data[:,:,:3]
+                acc = torch.sum(torch.argmax(output, 1) == torch.argmax(target, 1))
                 testing_acc += acc.item()
-                loss = criterion(output,target)
-                testing_loss += loss.item()
-                table.test_batch(i+1,label,torch.argmax(output,1),loss)
-                del loss
-            testing_loss /= float(len(testloader.dataset))
-            testing_acc /= float(len(testloader.dataset))
-            table.test_end(testing_loss,testing_acc,checkpoint_path)
+                
+                loss = criterion(output, target)
+                reconstruction_loss = nn.MSELoss()(reconstructed.view(data.size(0), -1), data.to(training_device).view(data.size(0), -1))
+                total_loss = loss + reconstruction_loss
+                testing_loss += total_loss.item()
+                testing_reconstruction_loss += reconstruction_loss.item()
+                
+                table.test_batch(i+1, label, torch.argmax(output, 1), total_loss)
+                del loss, reconstruction_loss, total_loss
 
-        log.log_results(name,checkpoint_path,testing_loss,testing_acc)
+            testing_loss /= float(len(testloader.dataset))
+            testing_reconstruction_loss /= float(len(testloader.dataset))
+            testing_acc /= float(len(testloader.dataset))
+            
+            table.test_end(testing_loss, testing_acc, checkpoint_path)
+            log.log_results(name, checkpoint_path, testing_loss, testing_acc)
 
     if os.path.isdir(checkpoints_dir):
         for checkpoint in os.listdir(checkpoints_dir):

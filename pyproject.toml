@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "3d-air-signature"
+version = "0.1.0"
+description = ""
+authors = ["Potato-Cracker <maheswarbora2@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = "^2.0.0+cu122"
+numpy = "^1.26.4"
+pandas = "^2.2.2"
+matplotlib = "^3.8.4"
+tensorboard = "^2.16.2"
+scikit-learn = "^1.4.2"
+scipy = "^1.13.0"
+torchvision = "^0.17.2"
+pyyaml = "^6.0.1"
+opencv-python = "^4.9.0.80"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

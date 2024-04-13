@@ -11,7 +11,16 @@ from train import Train
 from test import Test
 from write import PrintRun
 import yaml
+import torch
+import numpy as np
+import random
 
+# set random seed
+seed = 42
+torch.manual_seed(seed)
+np.random.seed(seed)
+random.seed(seed)
+torch.cuda.manual_seed(seed)
 
 config_filename = "config.yaml"
 results_filename = "results.csv"
