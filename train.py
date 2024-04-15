@@ -82,8 +82,8 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
             optimizer.step()
             table.train_batch(epoch+1,col+1,label,torch.argmax(output,-1),loss)
             del loss, reconstruction_loss, classification_loss
-            sample_filename = f"reconstructed_sample_Tail.npy"
-            sample_filename_data = f"input_sample_Tail.npy"
+            sample_filename = f"reconstructed_sample_Tip_Gaussian_-0.5stddev.npy"
+            sample_filename_data = f"input_sample_Tip_Gaussian_-0.5stddev.npy"
             data_sample = data[0].detach().cpu().numpy()
             reconstructed_sample = reconstructed[0].detach().cpu().numpy()
             np.save(sample_filename, reconstructed_sample)

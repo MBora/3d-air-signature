@@ -25,11 +25,12 @@ def main():
     num_epochs = 1  # Replace with the actual number of epochs
 
     for epoch in range(num_epochs):
-        sample_filename = f"reconstructed_sample_Tail.npy"
+        sample_filename = f"reconstructed_sample_Tip_Gaussian_-0.5stddev.npy"
         reconstructed_sample = np.load(sample_filename)
-        # sample_filename = f"./input_sample_Tip.npy"
+        # sample_filename = f"./input_sample_Tip_Gaussian_0.8stddev.npy"
         # reconstructed_sample = np.load(sample_filename)
         # reconstructed_sample = np.expand_dims(reconstructed_sample, 0)
+
         # Extract the x, y, and z coordinates from the reconstructed sample
         x_ = reconstructed_sample[0, :, 0]
         y_ = reconstructed_sample[0, :, 1]

@@ -656,6 +656,8 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         # Decoder path
         reconstructed = []
         for i in range(1):
+            noise = torch.randn_like(encoded) * -0.5  # Adding Gaussian noise with std dev of 0.8
+            noisy_encoded = encoded + noise
             r = self.fc3(encoded)
             r = self.unflatten(r)
             r = self.upsample(r)
