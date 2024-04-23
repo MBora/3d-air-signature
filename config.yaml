@@ -6,20 +6,20 @@ dataset:
   fit: 3 # 0. Raw dataset, 1. 2D Projections, 2. Interpolated to pen tip, 3. Interpolated to both tips (only for AirSigns)
   loader: 3 # 0. Features, 1. 2D Image Loader, 2. Padded, 3. Raw (for equalised rows)
 
-model: "SliTCNN2D_LSTM_ParallelTipTail" # Options:
-# "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SLiTCNN2D", "SliTCNN1StreamLSTM", "SliTCNN2D_LSTM_SequentialTipTail", "SliTCNN2D_LSTM_ParallelTipTail"
+model: "SliTCNN2D" # Options:
+# "NewGRU", "OldGRU", "NewLSTM", "OldLSTM", "SimpleLSTM", "SimpleGRU", "CNN1D", "VGG16", "CNN2D", "SliTCNN2D", "SliTCNN1StreamLSTM", "SliTCNN2D_LSTM_SequentialTipTail", "SliTCNN2D_LSTM_ParallelTipTail"
 
 paths:
   datasets: "../"
-  output_dir: "../Outputs" # Directory to store checkpoints and logs (Makes if it doesn't exist)
-
+  # output_dir: "../Outputs/NewAug+" # Directory to store checkpoints and logs (Makes if it doesn't exist)
+  output_dir: "../Outputs/"
 devices:
   dataloading: "cpu"
-  model: "cpu"
-  training: "cpu"
+  model: "cuda"
+  training: "cuda"
 
 training:
-  no_of_epochs: 1
+  no_of_epochs: 50
   batch_size: 32
   num_workers: 16
   learning_rate: 0.00001
@@ -88,6 +88,7 @@ AirSigns:
       rows: 512
       columns: 3
     both_balls:
+      # path: "NewAug+"
       path: "AirSignsShuffledBothBalls"
       forged_path: "SkilledForgeriesAirSignsBothBalls"
       aug_path: "AirSignsBothBallsAug"
