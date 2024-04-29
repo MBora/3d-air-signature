@@ -27,7 +27,7 @@ def main():
     for epoch in range(num_epochs):
         sample_filename = f"reconstructed_sample_Tip_Gaussian_-0.5stddev.npy"
         reconstructed_sample = np.load(sample_filename)
-        # sample_filename = f"./input_sample_Tip_Gaussian_0.8stddev.npy"
+        # sample_filename = f"./input_sample_Tip_Gaussian_-0.5stddev.npy"
         # reconstructed_sample = np.load(sample_filename)
         # reconstructed_sample = np.expand_dims(reconstructed_sample, 0)
 

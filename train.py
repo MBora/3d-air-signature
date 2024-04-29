@@ -62,7 +62,7 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
         table.train_header(epoch+1)
         for col,batch_data in enumerate(trainloader):
             data,target,label = batch_data
-            output, reconstructed = model(data.to(model_device))
+            output, reconstructed, elbow = model(data.to(model_device))
             output.to(training_device)
             reconstructed.to(training_device)
             target = target.to(training_device)
@@ -71,14 +71,16 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
             acc = torch.sum(torch.argmax(output,-1)==torch.argmax(target,1))
             training_acc += acc.item()
             optimizer.zero_grad()
-            reconstruction_loss = nn.MSELoss()(reconstructed.view(data.size(0), -1), data.to(training_device).view(data.size(0), -1))
+            # reconstruction_loss = nn.MSELoss()(reconstructed.view(data.size(0), -1), data.to(training_device).view(data.size(0), -1))
+            reconstruction_loss = elbow 
             classification_loss = criterion(output,target) 
-            loss = reconstruction_loss
+            loss = elbow
             training_loss += loss.item()
             total_reconstruction_loss += reconstruction_loss.item()
             total_classification_loss += classification_loss.item()
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0) # gradient clipping
             optimizer.step()
             table.train_batch(epoch+1,col+1,label,torch.argmax(output,-1),loss)
             del loss, reconstruction_loss, classification_loss
@@ -106,7 +108,7 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
             table.val_header(epoch+1)
             for col, batch_data in enumerate(valloader):
                 data, target, label = batch_data
-                output, reconstructed = model(data.to(model_device))
+                output, reconstructed, elbow = model(data.to(model_device))
                 output = output.to(training_device)
                 reconstructed = reconstructed.to(training_device)
                 target = target.to(training_device)
@@ -115,8 +117,9 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
                 val_acc += acc.item()
                 
                 loss = criterion(output, target)
-                reconstruction_loss = nn.MSELoss()(reconstructed.view(data.size(0), -1), data.to(training_device).view(data.size(0), -1))
-                total_loss = loss + reconstruction_loss
+                # reconstruction_loss = nn.MSELoss()(reconstructed.view(data.size(0), -1), data.to(training_device).view(data.size(0), -1))
+                reconstruction_loss = elbow
+                total_loss = reconstruction_loss
                 val_loss += total_loss.item()
                 val_reconstruction_loss += reconstruction_loss.item()
                 

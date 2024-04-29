@@ -578,6 +578,7 @@ class SliTCNN2DEncoderDecoder(nn.Module):
         out = self.fc2(out)
         return out
 
+# https://towardsdatascience.com/variational-autoencoder-demystified-with-pytorch-implementation-3a06bee395ed
 class SliTCNN1StreamEncoderDecoder(nn.Module):
     def __init__(self, num_rows, num_columns, num_classes, svc=False):
         super().__init__()
@@ -606,14 +607,14 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         self.lrelu = nn.LeakyReLU()
         self.flatten = nn.Flatten(start_dim=1, end_dim=2)
         self.fc1 = nn.ModuleList([
-            nn.Linear(in_features=128*int((self.num_rows-36)/2), out_features=128)
+            nn.Linear(in_features=128*int((self.num_rows-36)/2), out_features=512)
             for i in range(1)
         ])
         self.dropout = nn.Dropout(0.25)
         self.fc2 = nn.Linear(in_features=128, out_features=self.num_classes)
 
         # Decoder layers
-        self.fc3 = nn.Linear(in_features=128, out_features=128*int((self.num_rows-36)/2))
+        self.fc3 = nn.Linear(in_features=512, out_features=128*int((self.num_rows-36)/2))
         self.unflatten = nn.Unflatten(dim=1, unflattened_size=(128, int((self.num_rows-36)/2), 1))
         self.upsample = nn.Upsample(scale_factor=(2, 1))
         self.deconv2 = nn.ModuleList([
@@ -630,6 +631,42 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
                 nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=(30, 3), stride=1)
                 for i in range(1)
             ])
+        self.fc_mu = nn.Linear(in_features=512, out_features=128)
+        self.fc_var = nn.Linear(in_features=512, out_features=128)
+        self.log_scale = nn.Parameter(torch.Tensor([0.0]))
+        self.ztoencode = nn.Linear(in_features=128, out_features=512)
+   
+    def gaussian_likelihood(self, x_hat, logscale, x):
+        scale = torch.exp(logscale.clamp(min=-5, max=3))  # Clamp to avoid too large or too small values
+
+        # Check for NaNs or Infs in mean and scale
+        if torch.isnan(x_hat).any() or torch.isinf(x_hat).any():
+            print("NaNs or Infs found in mean")
+        if torch.isnan(scale).any() or torch.isinf(scale).any():
+            print("NaNs or Infs found in scale")
+
+        dist = torch.distributions.Normal(x_hat, scale)
+        log_pxz = dist.log_prob(x)
+        return log_pxz.sum(dim=(1, 2, 3))
+
+
+    def kl_divergence(self, z, mu, std):
+        # --------------------------
+        # Monte carlo KL divergence
+        # --------------------------
+        # 1. define the first two probabilities (in this case Normal for both)
+        p = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
+        q = torch.distributions.Normal(mu, std)
+
+        # 2. get the probabilities from the equation
+        log_qzx = q.log_prob(z)
+        log_pz = p.log_prob(z)
+
+        # kl
+        kl = (log_qzx - log_pz)
+        kl = kl.sum(-1)
+        return kl
+         
 
     def forward(self, x):
         to_cat = []
@@ -645,10 +682,16 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
             t = self.maxpool(t)
             t = self.flatten(t)
             t = torch.squeeze(t)
-            encoded = self.fc1[i](t)
-            t = self.lrelu(encoded)
-            t = self.dropout(t)
-            to_cat.append(t)
+            t = self.fc1[i](t)
+            encoded = self.lrelu(t)
+            mu = self.fc_mu(encoded)
+            log_var = self.fc_var(encoded)
+            # print(mu.shape, log_var.shape)
+            # sample z from q
+            std = torch.exp(log_var / 2)
+            q = torch.distributions.Normal(mu, std)
+            z = q.rsample()        
+            to_cat.append(z)
 
         out = torch.cat(to_cat, dim=1)
         out = self.fc2(out)
@@ -656,18 +699,32 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         # Decoder path
         reconstructed = []
         for i in range(1):
-            noise = torch.randn_like(encoded) * -0.5  # Adding Gaussian noise with std dev of 0.8
-            noisy_encoded = encoded + noise
-            r = self.fc3(encoded)
+            r = self.ztoencode(z)
+            # print(r.shape)
+            # input()
+            r = self.fc3(r)
+            # print(r.shape)
+            # input()
             r = self.unflatten(r)
             r = self.upsample(r)
+            r = self.lrelu(r)
             r = self.deconv2[i](r)
             r = self.lrelu(r)
             r = self.deconv1[i](r)
             reconstructed.append(r)
 
         reconstructed = torch.cat(reconstructed, dim=1)  # concatenate along the channel dimension
-        return out, reconstructed
+        x_selected = x[:, :, :3]  # Select only the first 3 columns
+        x_selected = x_selected.unsqueeze(1)
+        recon_loss = self.gaussian_likelihood(reconstructed, self.log_scale, x_selected)
+        # kl
+        kl = self.kl_divergence(z, mu, std)
+        # elbo
+        elbo = (kl - recon_loss)
+        elbo = elbo.mean()
+        # print(reconstructed.shape, x.shape)
+        # input()
+        return out, reconstructed, elbo
     
 class SliTCNN1Stream(nn.Module):
 
