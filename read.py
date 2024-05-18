@@ -110,6 +110,7 @@ class ReadConfig:
             'num_workers': self.num_workers,
             'batch_size': self.batch_size,
             'shuffle': True,
+            'test_mode': True,
         }
         if self.loader_id == 0 or self.loader_id == 5:
             dic_["num_columns"] = self.num_columns
@@ -136,6 +137,7 @@ class ReadConfig:
             'num_workers': self.num_workers,
             'batch_size': self.batch_size,
             'shuffle': True,
+            'test_mode': True,
         }
         if self.loader_id == 0 or self.loader_id == 5:
             dic_["num_columns"] = self.num_columns
@@ -166,6 +168,7 @@ class ReadConfig:
             'num_workers': self.num_workers,
             'batch_size': self.batch_size,
             'shuffle': True,
+            'test_mode': True,
         }
         if self.loader_id == 0 or self.loader_id == 5:
             dic_["num_columns"] = self.num_columns

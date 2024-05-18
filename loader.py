@@ -228,44 +228,51 @@ def AirSignsPaddedLoader(
 
 
 class AirSignsInterpolatedDataset(Dataset):
-
-    def __init__(self, dataset_path, loader_device, num_columns):
+    def __init__(self, dataset_path, loader_device, num_columns, test_mode=False):
         super().__init__()
         self.loader_device = loader_device
         self.num_columns = num_columns
         self.folderlist = sorted(list(os.listdir(dataset_path)))
-        self.filelist = []
-        for foldername in self.folderlist:
-            for filename in sorted(os.listdir(os.path.join(dataset_path,foldername))):
-                self.filelist.append(os.path.join(dataset_path,foldername,filename))
+        
+        # Define cutoff for testing
+        test_class_count = 10
+        if test_mode:
+            self.folderlist = self.folderlist[-test_class_count:]  # Last 10 classes for testing
+        else:
+            self.folderlist = self.folderlist[:-test_class_count]  # All but last 10 classes for training
 
-        self.list_of_all = []
-        self.full_length = len(self.filelist)
+        self.data_pairs = []
 
-        for file_index in range(self.full_length):
-            filepath = self.filelist[file_index]
-            foldername = os.path.basename(os.path.split(filepath)[0])
-            label = self.folderlist.index(foldername)
+        # Iterate over each folder and construct data pairs with the next class
+        num_folders = len(self.folderlist)
+        for i, foldername in enumerate(self.folderlist):
+            current_folder_path = os.path.join(dataset_path, foldername)
+            next_folder_index = (i + 1) % num_folders
+            next_folder_name = self.folderlist[next_folder_index]
+            next_folder_path = os.path.join(dataset_path, next_folder_name)
 
-            tensor = torch.from_numpy(
-                pandas.read_csv(filepath, header=None,sep=",").to_numpy()
-            ).to(self.loader_device).type(torch.float32)
+            current_files = sorted(os.listdir(current_folder_path))
+            next_files = sorted(os.listdir(next_folder_path))
 
-            tensor = tensor[:,:self.num_columns]
+            for current_file, next_file in zip(current_files, next_files):
+                current_file_path = os.path.join(current_folder_path, current_file)
+                next_file_path = os.path.join(next_folder_path, next_file)
 
-            self.list_of_all.append([tensor, self.target(label), label])
+                current_data = torch.from_numpy(
+                    pandas.read_csv(current_file_path, header=None, sep=",").to_numpy()
+                ).to(self.loader_device).type(torch.float32)[:,:self.num_columns]
 
-    def target(self,label): # Return one-hot tensor
-        tensor = torch.zeros([len(self.folderlist)]).to(self.loader_device)
-        tensor[label] = 1.
-        return tensor
+                next_data = torch.from_numpy(
+                    pandas.read_csv(next_file_path, header=None, sep=",").to_numpy()
+                ).to(self.loader_device).type(torch.float32)[:,:self.num_columns]
+
+                self.data_pairs.append((current_data, next_data, i, next_folder_index))
 
     def __len__(self):
-        return len(self.list_of_all)
+        return len(self.data_pairs)
 
     def __getitem__(self, index):
-        return self.list_of_all[index]
-
+        return self.data_pairs[index]
 
 def AirSignsRawLoader(
     dataset_path,
@@ -273,9 +280,10 @@ def AirSignsRawLoader(
     num_columns,
     batch_size,
     shuffle=True,
-    num_workers=0
+    num_workers=0,
+    test_mode=False
 ):
-    dataset = AirSignsInterpolatedDataset(dataset_path, loader_device, num_columns)
+    dataset = AirSignsInterpolatedDataset(dataset_path, loader_device, num_columns, test_mode=test_mode)
     return DataLoader(
         dataset, batch_size=batch_size, shuffle=shuffle,num_workers=num_workers, pin_memory=True
     )

@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy import interpolate
 from numpy import genfromtxt
+import glob
 
 saveDir = './output/'
 frameWidth = 672
@@ -25,11 +26,17 @@ def main():
     num_epochs = 1  # Replace with the actual number of epochs
 
     for epoch in range(num_epochs):
-        sample_filename = f"reconstructed_sample_Tip_Gaussian_-0.5stddev.npy"
+        # for reconstructed
+        # sample_filename = f"reconstructed_sample_Tip_Gaussian_-0.5stddev.npy"
+        sample_filename = f"./validation_samples/label_2/sample_0_2_reconstructed.npy"
         reconstructed_sample = np.load(sample_filename)
-        # sample_filename = f"./input_sample_Tip_Gaussian_-0.5stddev.npy"
-        # reconstructed_sample = np.load(sample_filename)
-        # reconstructed_sample = np.expand_dims(reconstructed_sample, 0)
+
+        # for input
+        # sample_filename = f"./input_sample_Tip_Gaussian_-0.5stddev.npy"    
+        # sample_filename = f"./next_sample_Tip_Gaussian_-0.5stddev.npy"
+        sample_filename = f"./validation_samples/label_2/sample_1_7_current.npy"
+        reconstructed_sample = np.load(sample_filename)
+        reconstructed_sample = np.expand_dims(reconstructed_sample, 0)
 
         # Extract the x, y, and z coordinates from the reconstructed sample
         x_ = reconstructed_sample[0, :, 0]

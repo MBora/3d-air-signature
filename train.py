@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 import pandas
 import torch
@@ -7,6 +8,12 @@ from read import ReadConfig
 from write import Table, TrainLog
 import torch.nn as nn
 import numpy as np
+
+
+def clear_directory(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    os.makedirs(path, exist_ok=True)
 
 def Train(config,name,writer,checkpoints_dir,logs_dir):
 
@@ -60,36 +67,54 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
 
         model.train()
         table.train_header(epoch+1)
+        if epoch % 50 == 0:
+            base_dir = "train_samples" 
+            clear_directory(base_dir)  # Clear the base directory at the start of each epoch
         for col,batch_data in enumerate(trainloader):
-            data,target,label = batch_data
-            output, reconstructed, elbow = model(data.to(model_device))
+            current_data, next_data, current_label, next_label = batch_data
+            current_data = current_data[:,:,:3]
+            next_data = next_data[:, :, :3]
+            current_data = current_data.to(model_device)
+            next_data = next_data.to(model_device)
+            output, reconstructed, elbow = model(current_data, next_data, mode="train")
             output.to(training_device)
             reconstructed.to(training_device)
-            target = target.to(training_device)
-            data = data[:,:,:3]
+            # target = target.to(training_device)
+
             # print(data.shape)
-            acc = torch.sum(torch.argmax(output,-1)==torch.argmax(target,1))
-            training_acc += acc.item()
+            # acc = torch.sum(torch.argmax(output,-1)==torch.argmax(target,1))
+            # training_acc += acc.item()
             optimizer.zero_grad()
-            # reconstruction_loss = nn.MSELoss()(reconstructed.view(data.size(0), -1), data.to(training_device).view(data.size(0), -1))
+            # print(reconstructed.view(next_data.size(0), -1).shape)
+            # print(next_data.to(training_device).view(next_data.size(0), -1).shape)
+            # input()
+            # reconstruction_loss = nn.MSELoss()(reconstructed.view(next_data.size(0), -1), next_data.to(training_device).view(next_data.size(0), -1))
             reconstruction_loss = elbow 
-            classification_loss = criterion(output,target) 
+            # classification_loss = criterion(output,target) 
             loss = elbow
             training_loss += loss.item()
             total_reconstruction_loss += reconstruction_loss.item()
-            total_classification_loss += classification_loss.item()
+            total_classification_loss = 0.0
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0) # gradient clipping
             optimizer.step()
-            table.train_batch(epoch+1,col+1,label,torch.argmax(output,-1),loss)
-            del loss, reconstruction_loss, classification_loss
-            sample_filename = f"reconstructed_sample_Tip_Gaussian_-0.5stddev.npy"
-            sample_filename_data = f"input_sample_Tip_Gaussian_-0.5stddev.npy"
-            data_sample = data[0].detach().cpu().numpy()
-            reconstructed_sample = reconstructed[0].detach().cpu().numpy()
-            np.save(sample_filename, reconstructed_sample)
-            np.save(sample_filename_data, data_sample)
+            table.train_batch(epoch+1,col+1,current_label,torch.argmax(output,-1),loss)
+            del loss, reconstruction_loss
+            if epoch % 50 == 0:
+                for i in range(current_label.size(0)):
+                    label = current_label[i].item()
+                    label_dir = f"train_samples/label_{label}"
+                    os.makedirs(label_dir, exist_ok=True)
+                    
+                    sample_id = f"sample_{col}_{i}"
+                    current_sample_path = os.path.join(label_dir, f"{sample_id}_current.npy")
+                    next_sample_path = os.path.join(label_dir, f"{sample_id}_next.npy")
+                    reconstructed_sample_path = os.path.join(label_dir, f"{sample_id}_reconstructed.npy")
+                    
+                    np.save(current_sample_path, current_data[i].detach().cpu().numpy())
+                    np.save(next_sample_path, next_data[i].detach().cpu().numpy())
+                    np.save(reconstructed_sample_path, reconstructed[i].detach().cpu().numpy())
         print(f"Epoch [{epoch+1}/{num_epochs}], Training Loss: {training_loss/len(trainloader):.4f}, Reconstruction Loss: {total_reconstruction_loss/len(trainloader):.4f}")
 
         training_loss /= float(len(trainloader.dataset))
@@ -106,32 +131,66 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
         model.eval()
         with torch.inference_mode():
             table.val_header(epoch+1)
+            
+            base_dir = "validation_samples"
+            clear_directory(base_dir)  # Clear the base directory at the start of each epoch
+
             for col, batch_data in enumerate(valloader):
-                data, target, label = batch_data
-                output, reconstructed, elbow = model(data.to(model_device))
+                # Unpack the batch data
+                current_data, next_data, current_label, next_label = batch_data
+
+                # Preprocess the data (similar to training)
+                current_data = current_data[:, :, :3]
+                next_data = next_data[:, :, :3]
+
+                # Move data to the appropriate device
+                current_data = current_data.to(model_device)
+                next_data = next_data.to(model_device)
+
+                # Forward pass
+                output, reconstructed, elbow = model(current_data, next_data, mode="val")
+
+                # Move output back to training device if necessary
                 output = output.to(training_device)
                 reconstructed = reconstructed.to(training_device)
-                target = target.to(training_device)
-                data = data[:,:,3:6]
-                acc = torch.sum(torch.argmax(output, -1) == torch.argmax(target, 1))
-                val_acc += acc.item()
-                
-                loss = criterion(output, target)
-                # reconstruction_loss = nn.MSELoss()(reconstructed.view(data.size(0), -1), data.to(training_device).view(data.size(0), -1))
-                reconstruction_loss = elbow
-                total_loss = reconstruction_loss
-                val_loss += total_loss.item()
-                val_reconstruction_loss += reconstruction_loss.item()
-                
-                # save the reconstructed sample and the data sample
-                table.val_batch(epoch+1, col+1, label, torch.argmax(output, -1), total_loss)
-                del loss, reconstruction_loss, total_loss
 
-            val_loss /= float(len(valloader.dataset))
-            val_reconstruction_loss /= float(len(valloader.dataset))
-            val_losses.append(val_loss)
-            val_acc /= float(len(valloader.dataset))
-            
+                # Compute losses (Use your specific loss function)
+                reconstruction_loss = elbow  # if elbow is used as loss in your context
+                loss = reconstruction_loss
+
+                # Accumulate the validation loss
+                val_loss += loss.item()
+                val_reconstruction_loss += reconstruction_loss.item()
+
+                # Optionally calculate classification accuracy
+                # acc = torch.sum(torch.argmax(output, -1) == torch.argmax(next_label, 1))
+                # val_acc += acc.item()
+
+                # Log batch results
+                table.val_batch(epoch+1, col+1, current_label, torch.argmax(output, -1), loss)
+
+                # Optionally save samples
+                # Store samples individually
+                for i in range(current_label.size(0)):
+                    label = current_label[i].item()
+                    label_dir = f"validation_samples/label_{label}"
+                    os.makedirs(label_dir, exist_ok=True)
+                    
+                    sample_id = f"sample_{col}_{i}"
+                    current_sample_path = os.path.join(label_dir, f"{sample_id}_current.npy")
+                    next_sample_path = os.path.join(label_dir, f"{sample_id}_next.npy")
+                    reconstructed_sample_path = os.path.join(label_dir, f"{sample_id}_reconstructed.npy")
+
+                    np.save(current_sample_path, current_data[i].detach().cpu().numpy())
+                    np.save(next_sample_path, next_data[i].detach().cpu().numpy())
+                    np.save(reconstructed_sample_path, reconstructed[i].detach().cpu().numpy())
+                
+            # Normalize the loss and accuracy over the dataset
+            val_loss /= len(valloader)
+            val_reconstruction_loss /= len(valloader)
+            # val_acc /= len(valloader.dataset)
+
+            # End of validation epoch logging
             table.val_end(epoch+1, val_loss, val_acc)
             writer.add_scalar("Validation Loss", val_loss, epoch+1)
             writer.add_scalar("Validation Reconstruction Loss", val_reconstruction_loss, epoch+1)

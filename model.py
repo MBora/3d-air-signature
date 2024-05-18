@@ -607,7 +607,7 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         self.lrelu = nn.LeakyReLU()
         self.flatten = nn.Flatten(start_dim=1, end_dim=2)
         self.fc1 = nn.ModuleList([
-            nn.Linear(in_features=128*int((self.num_rows-36)/2), out_features=512)
+            nn.Linear(in_features=128*int((self.num_rows-36)/2), out_features=128) # earlier 512
             for i in range(1)
         ])
         self.dropout = nn.Dropout(0.25)
@@ -668,10 +668,10 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         return kl
          
 
-    def forward(self, x):
+    def forward(self, x, x_target, mode="train"):
         to_cat = []
         for i in range(1):
-            t = x[:,:, 0:3]
+            t = x[:,:,0:3]
             # t = x[:,:,3*i:3*(i+1)]
             t = torch.unsqueeze(t, dim=1)
             t = self.conv1[i](t)
@@ -684,14 +684,33 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
             t = torch.squeeze(t)
             t = self.fc1[i](t)
             encoded = self.lrelu(t)
-            mu = self.fc_mu(encoded)
-            log_var = self.fc_var(encoded)
+            z = encoded
+            # mu = self.fc_mu(encoded)
+            # log_var = self.fc_var(encoded)
             # print(mu.shape, log_var.shape)
             # sample z from q
-            std = torch.exp(log_var / 2)
-            q = torch.distributions.Normal(mu, std)
-            z = q.rsample()        
+            # std = torch.exp(log_var / 2)
+            # q = torch.distributions.Normal(mu, std)
+            # z = q.rsample()
+            if(mode == "val"):
+                t = x_target[:,:,0:3]
+                # t = x[:,:,3*i:3*(i+1)]
+                t = torch.unsqueeze(t, dim=1)
+                t = self.conv1[i](t)
+                t = self.lrelu(t)
+                t = self.norm(t)
+                t = self.conv2[i](t)
+                t = self.lrelu(t)
+                t = self.maxpool(t)
+                t = self.flatten(t)
+                t = torch.squeeze(t)
+                t = self.fc1[i](t)
+                encoded = self.lrelu(t)
+                z2 = encoded
+                z = (z + z2)/2                       
             to_cat.append(z)
+            # print(z.shape)
+            # input()
 
         out = torch.cat(to_cat, dim=1)
         out = self.fc2(out)
@@ -716,14 +735,19 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         reconstructed = torch.cat(reconstructed, dim=1)  # concatenate along the channel dimension
         x_selected = x[:, :, :3]  # Select only the first 3 columns
         x_selected = x_selected.unsqueeze(1)
-        recon_loss = self.gaussian_likelihood(reconstructed, self.log_scale, x_selected)
+        x_target = x_target.unsqueeze(1)
+        recon_loss = self.gaussian_likelihood(reconstructed, self.log_scale, x_target)
         # kl
-        kl = self.kl_divergence(z, mu, std)
+        # kl = self.kl_divergence(z, mu, std)
         # elbo
-        elbo = (kl - recon_loss)
+        # elbo = (kl - recon_loss)
+        # print(recon_loss)
+        # input()
+        elbo = -recon_loss 
         elbo = elbo.mean()
         # print(reconstructed.shape, x.shape)
         # input()
+
         return out, reconstructed, elbo
     
 class SliTCNN1Stream(nn.Module):
