@@ -6,10 +6,10 @@ from pathlib import Path
 import random
 
 # Directory setup
-input_dir = './train_samples/'  # Root directory to process all subdirectories
-# input_dir = './validation_samples/'  # Root directory to process all subdirectories
+# input_dir = './train_samples/'  # Root directory to process all subdirectories
+input_dir = './validation_samples/'  # Root directory to process all subdirectories
 
-save_dir = './output_train/'  # Root directory for outputs
+save_dir = './output_val/'  # Root directory for outputs
 
 def load_and_process_file(file_path):
     data = np.load(file_path)
@@ -66,7 +66,7 @@ def main():
                 grouped_files[base_name].append(os.path.join(root, file))
 
         # Select 5 random groups of triplets
-        selected_triplets = random.sample(list(grouped_files.values()), min(5, len(grouped_files)))
+        selected_triplets = random.sample(list(grouped_files.values()), min(10, len(grouped_files)))
         triplets.extend(selected_triplets)
 
     for epoch in range(num_epochs):

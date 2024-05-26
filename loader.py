@@ -235,19 +235,25 @@ class AirSignsInterpolatedDataset(Dataset):
         self.folderlist = sorted(list(os.listdir(dataset_path)))
         
         # Define cutoff for testing
-        test_class_count = 10
-        if test_mode:
-            self.folderlist = self.folderlist[-test_class_count:]  # Last 10 classes for testing
-        else:
-            self.folderlist = self.folderlist[:-test_class_count]  # All but last 10 classes for training
+        test_class_count = 0  
+        # if test_mode:
+        #     self.folderlist = self.folderlist[-test_class_count:]  # Last 10 classes for testing
+        # else:
+        #     self.folderlist = self.folderlist[:-test_class_count]  # All but last 10 classes for training
 
         self.data_pairs = []
 
-        # Iterate over each folder and construct data pairs with the next class
+        # Iterate over each folder and construct data pairs
         num_folders = len(self.folderlist)
         for i, foldername in enumerate(self.folderlist):
             current_folder_path = os.path.join(dataset_path, foldername)
-            next_folder_index = (i + 1) % num_folders
+            
+            # Adjust next folder index based on test_mode
+            if test_mode:
+                next_folder_index = (i + 2) % num_folders
+            else:
+                next_folder_index = (i + 1) % num_folders
+
             next_folder_name = self.folderlist[next_folder_index]
             next_folder_path = os.path.join(dataset_path, next_folder_name)
 
@@ -260,19 +266,19 @@ class AirSignsInterpolatedDataset(Dataset):
 
                 current_data = torch.from_numpy(
                     pandas.read_csv(current_file_path, header=None, sep=",").to_numpy()
-                ).to(self.loader_device).type(torch.float32)[:,:self.num_columns]
+                ).to(self.loader_device).type(torch.float32)[:, :self.num_columns]
 
                 next_data = torch.from_numpy(
                     pandas.read_csv(next_file_path, header=None, sep=",").to_numpy()
-                ).to(self.loader_device).type(torch.float32)[:,:self.num_columns]
+                ).to(self.loader_device).type(torch.float32)[:, :self.num_columns]
 
                 self.data_pairs.append((current_data, next_data, i, next_folder_index))
 
     def __len__(self):
         return len(self.data_pairs)
 
-    def __getitem__(self, index):
-        return self.data_pairs[index]
+    def __getitem__(self, idx):
+        return self.data_pairs[idx]
 
 def AirSignsRawLoader(
     dataset_path,

@@ -736,7 +736,7 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         x_selected = x[:, :, :3]  # Select only the first 3 columns
         x_selected = x_selected.unsqueeze(1)
         x_target = x_target.unsqueeze(1)
-        recon_loss = self.gaussian_likelihood(reconstructed, self.log_scale, x_target)
+        recon_loss = self.gaussian_likelihood(reconstructed, self.log_scale, x_selected)
         # kl
         # kl = self.kl_divergence(z, mu, std)
         # elbo
