@@ -6,8 +6,11 @@ from pathlib import Path
 import random
 
 # Directory setup
-input_dir = './train_samples/'  # Root directory to process all subdirectories
-save_dir = './output_train/'  # Root directory for outputs
+# input_dir = './train_samples/'  # Root directory to process all subdirectories
+# save_dir = './output_train/'  # Root directory for outputs
+
+input_dir = './validation_samples2/'  # Root directory to process all subdirectories
+save_dir = './output_val2/'  # Root directory for outputs
 
 def load_and_process_file(file_path):
     data = np.load(file_path)

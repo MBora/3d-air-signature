@@ -7,9 +7,9 @@ import random
 
 # Directory setup
 # input_dir = './train_samples/'  # Root directory to process all subdirectories
-input_dir = './validation_samples/'  # Root directory to process all subdirectories
+input_dir = './validation_samples5/'  # Root directory to process all subdirectories
 
-save_dir = './output_val/'  # Root directory for outputs
+save_dir = './Output_val5/'  # Root directory for outputs
 
 def load_and_process_file(file_path):
     data = np.load(file_path)

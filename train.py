@@ -67,9 +67,10 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
 
         model.train()
         table.train_header(epoch+1)
-        if epoch % 50 == 0:
-            base_dir = "train_samples" 
-            clear_directory(base_dir)  # Clear the base directory at the start of each epoch
+        # if epoch % 50 == 0:
+        # if epoch % 3 == 0:
+        base_dir = "train_samples5" 
+        clear_directory(base_dir)  # Clear the base directory at the start of each epoch
         for col,batch_data in enumerate(trainloader):
             current_data, next_data, current_label, next_label = batch_data
             current_data = current_data[:,:,:3]
@@ -92,6 +93,7 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
             reconstruction_loss = elbow 
             # classification_loss = criterion(output,target) 
             loss = elbow
+            # print(loss)
             training_loss += loss.item()
             total_reconstruction_loss += reconstruction_loss.item()
             total_classification_loss = 0.0
@@ -101,10 +103,10 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
             optimizer.step()
             table.train_batch(epoch+1,col+1,current_label,torch.argmax(output,-1),loss)
             del loss, reconstruction_loss
-            if epoch % 50 == 0:
+            if epoch % 1 == 0:
                 for i in range(current_label.size(0)):
                     label = current_label[i].item()
-                    label_dir = f"train_samples/label_{label}"
+                    label_dir = f"train_samples5/label_{label}"
                     os.makedirs(label_dir, exist_ok=True)
                     
                     sample_id = f"sample_{col}_{i}"
@@ -132,7 +134,7 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
         with torch.inference_mode():
             table.val_header(epoch+1)
             
-            base_dir = "validation_samples"
+            base_dir = "validation_samples5"
             clear_directory(base_dir)  # Clear the base directory at the start of each epoch
 
             for col, batch_data in enumerate(valloader):
@@ -173,7 +175,7 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
                 # Store samples individually
                 for i in range(current_label.size(0)):
                     label = current_label[i].item()
-                    label_dir = f"validation_samples/label_{label}"
+                    label_dir = f"validation_samples5/label_{label}"
                     os.makedirs(label_dir, exist_ok=True)
                     
                     sample_id = f"sample_{col}_{i}"

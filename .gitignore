@@ -5,3 +5,4 @@ output*
 *samples
 *.zip_
 *.npy
+VAE+SkipVal/

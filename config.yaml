@@ -19,7 +19,7 @@ devices:
   training: "cuda"
 
 training:
-  no_of_epochs: 30
+  no_of_epochs: 100
   batch_size: 32
   num_workers: 16
   learning_rate: 0.00005

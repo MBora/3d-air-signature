@@ -605,6 +605,7 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         self.norm = nn.LayerNorm([64, self.num_rows-29, 1])
         self.maxpool = nn.MaxPool2d(kernel_size=(2, 1))
         self.lrelu = nn.LeakyReLU()
+        self.relu = nn.ReLU()
         self.flatten = nn.Flatten(start_dim=1, end_dim=2)
         self.fc1 = nn.ModuleList([
             nn.Linear(in_features=128*int((self.num_rows-36)/2), out_features=128) # earlier 512
@@ -614,9 +615,9 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         self.fc2 = nn.Linear(in_features=128, out_features=self.num_classes)
 
         # Decoder layers
-        self.fc3 = nn.Linear(in_features=512, out_features=128*int((self.num_rows-36)/2))
+        self.fc3 = nn.Linear(in_features=128, out_features=128*int((self.num_rows-36)/2))
         self.unflatten = nn.Unflatten(dim=1, unflattened_size=(128, int((self.num_rows-36)/2), 1))
-        self.upsample = nn.Upsample(scale_factor=(2, 1))
+        self.upsample = nn.Upsample(scale_factor=(2, 1), mode="bilinear",align_corners=True)
         self.deconv2 = nn.ModuleList([
             nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=(8, 1), stride=1)
             for i in range(1)
@@ -631,10 +632,10 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
                 nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=(30, 3), stride=1)
                 for i in range(1)
             ])
-        self.fc_mu = nn.Linear(in_features=512, out_features=128)
-        self.fc_var = nn.Linear(in_features=512, out_features=128)
+        self.fc_mu = nn.Linear(in_features=128, out_features=128)
+        self.fc_var = nn.Linear(in_features=128, out_features=128)
         self.log_scale = nn.Parameter(torch.Tensor([0.0]))
-        self.ztoencode = nn.Linear(in_features=128, out_features=512)
+        self.ztoencode = nn.Linear(in_features=128, out_features=128)
    
     def gaussian_likelihood(self, x_hat, logscale, x):
         scale = torch.exp(logscale.clamp(min=-5, max=3))  # Clamp to avoid too large or too small values
@@ -674,39 +675,47 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
             t = x[:,:,0:3]
             # t = x[:,:,3*i:3*(i+1)]
             t = torch.unsqueeze(t, dim=1)
-            t = self.conv1[i](t)
-            t = self.lrelu(t)
+            t_conv1 = self.conv1[i](t)
+            t = self.relu(t_conv1)
             t = self.norm(t)
-            t = self.conv2[i](t)
-            t = self.lrelu(t)
+            t_conv2 = self.conv2[i](t)
+            t = self.relu(t_conv2)
             t = self.maxpool(t)
             t = self.flatten(t)
             t = torch.squeeze(t)
-            t = self.fc1[i](t)
-            encoded = self.lrelu(t)
+            t_fc1 = self.fc1[i](t)
+            encoded = self.relu(t_fc1)
             z = encoded
-            # mu = self.fc_mu(encoded)
-            # log_var = self.fc_var(encoded)
-            # print(mu.shape, log_var.shape)
+            mu = self.fc_mu(encoded)
+            log_var = self.fc_var(encoded)
+            print(mu.shape, log_var.shape)
             # sample z from q
-            # std = torch.exp(log_var / 2)
-            # q = torch.distributions.Normal(mu, std)
-            # z = q.rsample()
+            std = torch.exp(log_var / 2)
+            q = torch.distributions.Normal(mu, std)
+            z = q.rsample()
+            t_fc1_next = 0
+            t_conv1_next = 0
+            t_conv2_next = 0
             if(mode == "val"):
                 t = x_target[:,:,0:3]
                 # t = x[:,:,3*i:3*(i+1)]
                 t = torch.unsqueeze(t, dim=1)
-                t = self.conv1[i](t)
-                t = self.lrelu(t)
+                t_conv1_next = self.conv1[i](t)
+                t = self.relu(t_conv1_next)
                 t = self.norm(t)
-                t = self.conv2[i](t)
-                t = self.lrelu(t)
+                t_conv2_next = self.conv2[i](t)
+                t = self.relu(t_conv2_next)
                 t = self.maxpool(t)
                 t = self.flatten(t)
                 t = torch.squeeze(t)
-                t = self.fc1[i](t)
-                encoded = self.lrelu(t)
+                t_fc1_next = self.fc1[i](t)
+                encoded = self.relu(t_fc1_next)
                 z2 = encoded
+                mu2 = self.fc_mu(encoded)
+                log_var2 = self.fc_var(encoded)
+                std2 = torch.exp(log_var2 / 2)
+                q2 = torch.distributions.Normal(mu2, std2)
+                z2 = q2.rsample()
                 z = (z + z2)/2                       
             to_cat.append(z)
             # print(z.shape)
@@ -721,14 +730,26 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
             r = self.ztoencode(z)
             # print(r.shape)
             # input()
+            if mode == "val":
+                r = r + (t_fc1_next + t_fc1)/2
+            else:
+                r = r + t_fc1
             r = self.fc3(r)
             # print(r.shape)
             # input()
             r = self.unflatten(r)
             r = self.upsample(r)
-            r = self.lrelu(r)
+            r = self.relu(r)
+            if mode == "val":
+                r = r + (t_conv2_next + t_conv2)/2
+            else:
+                r = r + t_conv2
             r = self.deconv2[i](r)
-            r = self.lrelu(r)
+            r = self.relu(r)
+            if mode == "val":
+                r = r + (t_conv1_next + t_conv1)/2
+            else:
+                r = (r + t_conv1)/2
             r = self.deconv1[i](r)
             reconstructed.append(r)
 
@@ -737,13 +758,14 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         x_selected = x_selected.unsqueeze(1)
         x_target = x_target.unsqueeze(1)
         recon_loss = self.gaussian_likelihood(reconstructed, self.log_scale, x_selected)
+        # recon_loss = torch.nn.functional.mse_loss(reconstructed, x_selected)
         # kl
-        # kl = self.kl_divergence(z, mu, std)
+        kl = self.kl_divergence(z, mu, std)
         # elbo
-        # elbo = (kl - recon_loss)
+        elbo = (kl - recon_loss)
         # print(recon_loss)
         # input()
-        elbo = -recon_loss 
+        # elbo = -recon_loss 
         elbo = elbo.mean()
         # print(reconstructed.shape, x.shape)
         # input()
