@@ -11,9 +11,18 @@ import numpy as np
 
 
 def clear_directory(path):
-    if os.path.exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path, exist_ok=True)
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            try:
+                os.unlink(os.path.join(root, file))
+            except Exception as e:
+                print(f"Error deleting file {file}: {e}")
+        for dir in dirs:
+            try:
+                shutil.rmtree(os.path.join(root, dir))
+            except Exception as e:
+                print(f"Error deleting directory {dir}: {e}")
+
 
 def Train(config,name,writer,checkpoints_dir,logs_dir):
 
@@ -69,12 +78,12 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
         table.train_header(epoch+1)
         # if epoch % 50 == 0:
         # if epoch % 3 == 0:
-        base_dir = "train_samples5" 
+        base_dir = "train_samples_two_stream" 
         clear_directory(base_dir)  # Clear the base directory at the start of each epoch
         for col,batch_data in enumerate(trainloader):
             current_data, next_data, current_label, next_label = batch_data
-            current_data = current_data[:,:,:3]
-            next_data = next_data[:, :, :3]
+            # current_data = current_data[:,:,:3]
+            # next_data = next_data[:, :, :3]
             current_data = current_data.to(model_device)
             next_data = next_data.to(model_device)
             output, reconstructed, elbow = model(current_data, next_data, mode="train")
@@ -103,10 +112,10 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
             optimizer.step()
             table.train_batch(epoch+1,col+1,current_label,torch.argmax(output,-1),loss)
             del loss, reconstruction_loss
-            if epoch % 1 == 0:
+            if epoch == 120:
                 for i in range(current_label.size(0)):
                     label = current_label[i].item()
-                    label_dir = f"train_samples5/label_{label}"
+                    label_dir = f"train_samples_two_stream/label_{label}"
                     os.makedirs(label_dir, exist_ok=True)
                     
                     sample_id = f"sample_{col}_{i}"
@@ -134,7 +143,7 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
         with torch.inference_mode():
             table.val_header(epoch+1)
             
-            base_dir = "validation_samples5"
+            base_dir = "validation_samples_two_stream"
             clear_directory(base_dir)  # Clear the base directory at the start of each epoch
 
             for col, batch_data in enumerate(valloader):
@@ -142,8 +151,8 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
                 current_data, next_data, current_label, next_label = batch_data
 
                 # Preprocess the data (similar to training)
-                current_data = current_data[:, :, :3]
-                next_data = next_data[:, :, :3]
+                # current_data = current_data[:, :, :3]
+                # next_data = next_data[:, :, :3]
 
                 # Move data to the appropriate device
                 current_data = current_data.to(model_device)
@@ -173,19 +182,20 @@ def Train(config,name,writer,checkpoints_dir,logs_dir):
 
                 # Optionally save samples
                 # Store samples individually
-                for i in range(current_label.size(0)):
-                    label = current_label[i].item()
-                    label_dir = f"validation_samples5/label_{label}"
-                    os.makedirs(label_dir, exist_ok=True)
-                    
-                    sample_id = f"sample_{col}_{i}"
-                    current_sample_path = os.path.join(label_dir, f"{sample_id}_current.npy")
-                    next_sample_path = os.path.join(label_dir, f"{sample_id}_next.npy")
-                    reconstructed_sample_path = os.path.join(label_dir, f"{sample_id}_reconstructed.npy")
+                if epoch == 120:
+                    for i in range(current_label.size(0)):
+                        label = current_label[i].item()
+                        label_dir = f"validation_samples_two_stream/label_{label}"
+                        os.makedirs(label_dir, exist_ok=True)
+                        
+                        sample_id = f"sample_{col}_{i}"
+                        current_sample_path = os.path.join(label_dir, f"{sample_id}_current.npy")
+                        next_sample_path = os.path.join(label_dir, f"{sample_id}_next.npy")
+                        reconstructed_sample_path = os.path.join(label_dir, f"{sample_id}_reconstructed.npy")
 
-                    np.save(current_sample_path, current_data[i].detach().cpu().numpy())
-                    np.save(next_sample_path, next_data[i].detach().cpu().numpy())
-                    np.save(reconstructed_sample_path, reconstructed[i].detach().cpu().numpy())
+                        np.save(current_sample_path, current_data[i].detach().cpu().numpy())
+                        np.save(next_sample_path, next_data[i].detach().cpu().numpy())
+                        np.save(reconstructed_sample_path, reconstructed[i].detach().cpu().numpy())
                 
             # Normalize the loss and accuracy over the dataset
             val_loss /= len(valloader)

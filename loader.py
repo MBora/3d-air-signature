@@ -250,7 +250,7 @@ class AirSignsInterpolatedDataset(Dataset):
             
             # Adjust next folder index based on test_mode
             if test_mode:
-                next_folder_index = (i + 2) % num_folders
+                next_folder_index = (i + 1) % num_folders
             else:
                 next_folder_index = (i + 1) % num_folders
 

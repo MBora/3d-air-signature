@@ -7,9 +7,9 @@ import random
 
 # Directory setup
 # input_dir = './train_samples/'  # Root directory to process all subdirectories
-input_dir = './train_samples_two_stream/'  # Root directory to process all subdirectories
+input_dir = './validation_samples_two_stream/'  # Root directory to process all subdirectories
 
-save_dir = './Output_train_two_stream/'  # Root directory for outputs
+save_dir = './Output_val_two_stream/'  # Root directory for outputs
 
 def load_and_process_file(file_path):
     data = np.load(file_path)
@@ -21,23 +21,41 @@ def load_and_process_file(file_path):
     return data
 
 def plot_and_save(data, file_path, epoch):
-    if data.ndim < 2 or data.shape[1] < 3:
+    if data.ndim < 2 or data.shape[-1] < 3:
         print(f"Skipping {file_path} due to unexpected data dimensions.")
         return  # Skip files that do not meet the expected dimensions
 
-    # Extract x, y, z coordinates assuming they are the first three 
-    if data.ndim == 2:
-        x_, y_, z_ = data[:, 3], data[:, 4], data[:, 5]
+    if 'reconstructed' in file_path:
+        # Extract x, y, z coordinates for pen tip and pen tail from reconstructed data
+        x_tip, y_tip, z_tip = data[0, :, 0], data[0, :, 1], data[0, :, 2]
+        x_tail, y_tail, z_tail = data[1, :, 0], data[1, :, 1], data[1, :, 2]
     else:
-        x_, y_, z_ = data[0, :, 0], data[0, :, 1], data[0, :, 2]
+        # Extract x, y, z coordinates for pen tip (first three columns)
+        if data.ndim == 2:
+            x_tip, y_tip, z_tip = data[:, 0], data[:, 1], data[:, 2]
+            if data.shape[1] >= 6:
+                x_tail, y_tail, z_tail = data[:, 3], data[:, 4], data[:, 5]
+            else:
+                x_tail, y_tail, z_tail = None, None, None
+        else:
+            x_tip, y_tip, z_tip = data[0, :, 0], data[0, :, 1], data[0, :, 2]
+            if data.shape[2] >= 6:
+                x_tail, y_tail, z_tail = data[0, :, 3], data[0, :, 4], data[0, :, 5]
+            else:
+                x_tail, y_tail, z_tail = None, None, None
 
     print(f"Plotting {file_path}...")
     # Plotting the 3D trajectory
     fig, ax = plt.subplots(subplot_kw={'projection': '3d'})
-    ax.plot(x_, y_, z_, 'g-')  # Green line
+    ax.plot(x_tip, y_tip, z_tip, 'g-', label='Pen Tip')  # Green line for pen tip
+    
+    if x_tail is not None and y_tail is not None and z_tail is not None:
+        ax.plot(x_tail, y_tail, z_tail, 'r-', label='Pen Tail')  # Red line for pen tail
+    
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
+    ax.legend()
 
     # Determine file type for title (current or reconstructed)
     file_type = 'Reconstructed' if 'reconstructed' in file_path else 'Current'

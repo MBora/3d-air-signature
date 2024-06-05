@@ -6,3 +6,5 @@ output*
 *.zip_
 *.npy
 VAE+SkipVal/
+VAE+SkipVal.zip
+Output*

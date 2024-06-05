@@ -589,17 +589,17 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         if svc:
             self.conv1 = nn.ModuleList([
                 nn.Conv2d(in_channels=1, out_channels=64, kernel_size=(30, 2), stride=1)
-                for i in range(1)
+                for i in range(2)
             ])
         else:
             self.conv1 = nn.ModuleList([
                 nn.Conv2d(in_channels=1, out_channels=64, kernel_size=(30, 3), stride=1)
-                for i in range(1)
+                for i in range(2)
             ])
 
         self.conv2 = nn.ModuleList([
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(8, 1), stride=1)
-            for i in range(1)
+            for i in range(2)
         ])
 
         self.norm = nn.LayerNorm([64, self.num_rows-29, 1])
@@ -609,33 +609,50 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         self.flatten = nn.Flatten(start_dim=1, end_dim=2)
         self.fc1 = nn.ModuleList([
             nn.Linear(in_features=128*int((self.num_rows-36)/2), out_features=128) # earlier 512
-            for i in range(1)
+            for i in range(2)
         ])
         self.dropout = nn.Dropout(0.25)
-        self.fc2 = nn.Linear(in_features=128, out_features=self.num_classes)
+        self.fc2 = nn.Linear(in_features=256, out_features=self.num_classes)
+        self.fc_mid = nn.Linear(in_features=256, out_features=256)
 
         # Decoder layers
-        self.fc3 = nn.Linear(in_features=128, out_features=128*int((self.num_rows-36)/2))
+        # self.fc3 = nn.Linear(in_features=128, out_features=128*int((self.num_rows-36)/2))
+        self.fc3 = nn.ModuleList([
+            nn.Linear(in_features=128, out_features=128*int((self.num_rows-36)/2)) 
+            for i in range(2)
+            ])
         self.unflatten = nn.Unflatten(dim=1, unflattened_size=(128, int((self.num_rows-36)/2), 1))
         self.upsample = nn.Upsample(scale_factor=(2, 1), mode="bilinear",align_corners=True)
         self.deconv2 = nn.ModuleList([
             nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=(8, 1), stride=1)
-            for i in range(1)
+            for i in range(2)
         ])
         if svc:
             self.deconv1 = nn.ModuleList([
                 nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=(30, 2), stride=1)
-                for i in range(1)
+                for i in range(2)
             ])
         else:
             self.deconv1 = nn.ModuleList([
                 nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=(30, 3), stride=1)
-                for i in range(1)
+                for i in range(2)
             ])
-        self.fc_mu = nn.Linear(in_features=128, out_features=128)
-        self.fc_var = nn.Linear(in_features=128, out_features=128)
-        self.log_scale = nn.Parameter(torch.Tensor([0.0]))
-        self.ztoencode = nn.Linear(in_features=128, out_features=128)
+        self.fc_mu = nn.ModuleList([
+            nn.Linear(in_features=128, out_features=128) 
+            for i in range(2)
+            ])
+        # self.fc_var = nn.Linear(in_features=128, out_features=128)
+        self.fc_var = nn.ModuleList([
+            nn.Linear(in_features=128, out_features=128) 
+            for i in range(2)
+            ])
+        # self.log_scale = nn.Parameter(torch.Tensor([0.0]))
+        self.log_scale = nn.ParameterList([nn.Parameter(torch.Tensor([0.0])) for i in range(2)])
+        # self.ztoencode = nn.Linear(in_features=128, out_features=128)
+        self.ztoencode = nn.ModuleList([
+            nn.Linear(in_features=128, out_features=128) 
+            for i in range(2)
+            ])
    
     def gaussian_likelihood(self, x_hat, logscale, x):
         scale = torch.exp(logscale.clamp(min=-5, max=3))  # Clamp to avoid too large or too small values
@@ -671,48 +688,64 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
 
     def forward(self, x, x_target, mode="train"):
         to_cat = []
-        for i in range(1):
-            t = x[:,:,0:3]
-            # t = x[:,:,3*i:3*(i+1)]
+        t_conv1 = []
+        t_conv2 = []
+        t_conv1_next = []
+        t_conv2_next = []
+        t_fc1 = []
+        t_fc1_next = []
+        z_arr  = []
+        mu_arr = []
+        log_var_arr = []
+        std_arr = []
+        for i in range(2):
+            # t = x[:,:,0:6]
+            t = x[:,:,3*i:3*(i+1)]
             t = torch.unsqueeze(t, dim=1)
-            t_conv1 = self.conv1[i](t)
-            t = self.relu(t_conv1)
+            t = self.conv1[i](t)
+            t_conv1.append(t)
+            t = self.relu(t)
             t = self.norm(t)
-            t_conv2 = self.conv2[i](t)
-            t = self.relu(t_conv2)
+            t = self.conv2[i](t)
+            t_conv2.append(t)
+            t = self.relu(t)
             t = self.maxpool(t)
             t = self.flatten(t)
             t = torch.squeeze(t)
-            t_fc1 = self.fc1[i](t)
-            encoded = self.relu(t_fc1)
-            z = encoded
-            mu = self.fc_mu(encoded)
-            log_var = self.fc_var(encoded)
-            print(mu.shape, log_var.shape)
+            t = self.fc1[i](t)
+            t_fc1.append(t)
+            encoded = self.relu(t)
+            # z = encoded
+            mu = self.fc_mu[i](encoded)
+            mu_arr.append(mu)
+            log_var = self.fc_var[i](encoded)
+            log_var_arr.append(log_var)
             # sample z from q
             std = torch.exp(log_var / 2)
+            std_arr.append(std)
             q = torch.distributions.Normal(mu, std)
             z = q.rsample()
-            t_fc1_next = 0
-            t_conv1_next = 0
-            t_conv2_next = 0
+            z_arr.append(z)
             if(mode == "val"):
-                t = x_target[:,:,0:3]
-                # t = x[:,:,3*i:3*(i+1)]
+                # t = x_target[:,:,0:6]
+                t = x_target[:,:,3*i:3*(i+1)]
                 t = torch.unsqueeze(t, dim=1)
-                t_conv1_next = self.conv1[i](t)
-                t = self.relu(t_conv1_next)
+                t = self.conv1[i](t)
+                t_conv1_next.append(t)
+                t = self.relu(t)
                 t = self.norm(t)
-                t_conv2_next = self.conv2[i](t)
-                t = self.relu(t_conv2_next)
+                t = self.conv2[i](t)
+                t_conv2_next.append(t)
+                t = self.relu(t)
                 t = self.maxpool(t)
                 t = self.flatten(t)
                 t = torch.squeeze(t)
-                t_fc1_next = self.fc1[i](t)
-                encoded = self.relu(t_fc1_next)
-                z2 = encoded
-                mu2 = self.fc_mu(encoded)
-                log_var2 = self.fc_var(encoded)
+                t = self.fc1[i](t)
+                t_fc1_next.append(t)
+                encoded = self.relu(t)
+                # z2 = encoded
+                mu2 = self.fc_mu[i](encoded)
+                log_var2 = self.fc_var[i](encoded)
                 std2 = torch.exp(log_var2 / 2)
                 q2 = torch.distributions.Normal(mu2, std2)
                 z2 = q2.rsample()
@@ -722,45 +755,56 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
             # input()
 
         out = torch.cat(to_cat, dim=1)
-        out = self.fc2(out)
+        z = self.fc_mid(out) # combined latent space concatenated and processed from individual latent spaces
+        out = self.fc2(out) # for classification only to make sure code does not break
 
         # Decoder path
         reconstructed = []
-        for i in range(1):
-            r = self.ztoencode(z)
+        for i in range(2):
+            # slice the tensor into two halves since they were concatenated before
+            r = z[:, 128*i:128*(i+1)]
+            r = self.ztoencode[i](r)
             # print(r.shape)
             # input()
             if mode == "val":
-                r = r + (t_fc1_next + t_fc1)/2
+                r = r + (t_fc1_next[i] + t_fc1[i])/2
             else:
-                r = r + t_fc1
-            r = self.fc3(r)
+                r = r + t_fc1[i]
+            r = self.fc3[i](r)
             # print(r.shape)
             # input()
             r = self.unflatten(r)
             r = self.upsample(r)
             r = self.relu(r)
             if mode == "val":
-                r = r + (t_conv2_next + t_conv2)/2
+                r = r + (t_conv2_next[i] + t_conv2[i])/2
             else:
-                r = r + t_conv2
+                r = r + t_conv2[i]
             r = self.deconv2[i](r)
             r = self.relu(r)
             if mode == "val":
-                r = r + (t_conv1_next + t_conv1)/2
+                r = r + (t_conv1_next[i] + t_conv1[i])/2
             else:
-                r = (r + t_conv1)/2
+                r = (r + t_conv1[i])
             r = self.deconv1[i](r)
             reconstructed.append(r)
 
-        reconstructed = torch.cat(reconstructed, dim=1)  # concatenate along the channel dimension
-        x_selected = x[:, :, :3]  # Select only the first 3 columns
-        x_selected = x_selected.unsqueeze(1)
+        # reconstructed = torch.cat(reconstructed, dim=1)  # concatenate along the channel dimension
+        x_tip = x[:, :, :3]  # Select only the first 3 columns
+        x_tip = x_tip.unsqueeze(1)
         x_target = x_target.unsqueeze(1)
-        recon_loss = self.gaussian_likelihood(reconstructed, self.log_scale, x_selected)
+        # print(reconstructed[0].shape, x_tip.shape)
+        recon_loss_tip = self.gaussian_likelihood(reconstructed[0], self.log_scale[0], x_tip)
+
+        x_tail = x[:, :, 3:]  # Select only the last 3 columns
+        x_tail = x_tail.unsqueeze(1)
+        recon_loss_tail = self.gaussian_likelihood(reconstructed[1], self.log_scale[1], x_tail)
+        recon_loss = recon_loss_tip + recon_loss_tail
         # recon_loss = torch.nn.functional.mse_loss(reconstructed, x_selected)
         # kl
-        kl = self.kl_divergence(z, mu, std)
+        kl_tip = self.kl_divergence(z_arr[0], mu_arr[0], std_arr[0])
+        kl_tail = self.kl_divergence(z_arr[1], mu_arr[1], std_arr[1])
+        kl = kl_tip + kl_tail
         # elbo
         elbo = (kl - recon_loss)
         # print(recon_loss)
@@ -769,6 +813,7 @@ class SliTCNN1StreamEncoderDecoder(nn.Module):
         elbo = elbo.mean()
         # print(reconstructed.shape, x.shape)
         # input()
+        reconstructed = torch.cat(reconstructed, dim=1)  # concatenate along the channel dimension
 
         return out, reconstructed, elbo
     

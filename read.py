@@ -77,7 +77,7 @@ class ReadConfig:
         self.Model = eval(f'model.{self.architecture_name}')
 
     def train_loader(self):
-        path_ = os.path.join(self.path_to_dataset,"Train")
+        path_ = os.path.join(self.path_to_dataset,"Combined")
         dic_ = {
             'dataset_path': path_,
             'loader_device': self.loader_device,
@@ -103,7 +103,7 @@ class ReadConfig:
         return self.Dataloader(**dic_)
 
     def val_loader(self):
-        path_ = os.path.join(self.path_to_dataset,"Validation")
+        path_ = os.path.join(self.path_to_dataset,"Combined")
         dic_ = {
             'dataset_path': path_,
             'loader_device': self.loader_device,
